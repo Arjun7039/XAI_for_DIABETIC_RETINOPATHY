@@ -2,13 +2,15 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688)
-![Next.js](https://img.shields.io/badge/Frontend-Next.js-000000)
-![PyTorch](https://img.shields.io/badge/DL-PyTorch-EE4C2C)
+![React](https://img.shields.io/badge/Frontend-Vite%20%2B%20React-61DAFB)
+![TensorFlow/Keras](https://img.shields.io/badge/DL-TensorFlow%2FKeras-FF6F00)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 > An explainable, uncertainty-aware deep learning system that grades diabetic retinopathy (DR) severity from retinal fundus images — built to accelerate first-line screening by healthcare workers while keeping a qualified ophthalmologist in the final decision loop.
 
-Companion document: **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** — the phase-by-phase build checklist for this README.
+Companion document: **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** — the phase-by-phase build checklist for this project.
+
+---
 
 ## Table of Contents
 - [Clinical Disclaimer](#clinical-disclaimer)
@@ -28,84 +30,115 @@ Companion document: **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** — t
 - [Deployment](#deployment)
 - [Roadmap](#roadmap)
 - [License](#license)
-- [Acknowledgments](#acknowledgments)
+
+---
 
 ## Clinical Disclaimer
 
 This is a **screening assistance aid**, not a diagnostic device. It helps healthcare workers **triage and prioritize** patients for further evaluation — it does not replace examination by a qualified ophthalmologist or retina specialist, and every prediction requires clinical confirmation before any treatment decision. Grad-CAM and SHAP outputs are **post-hoc explanations of model behavior**, not proof that a highlighted region is a clinically validated lesion — that distinction should be stated explicitly anywhere results are shown. This project has not been evaluated or approved by any regulatory body (CDSCO, FDA, CE, or otherwise) and is not intended for standalone clinical diagnosis.
 
+---
+
 ## Overview
 
-Diabetic retinopathy is a leading cause of preventable blindness in working-age adults, and early-stage disease is often asymptomatic — which is exactly why regular screening matters and why screening bottlenecks (too few specialists, too many patients) are a real problem. RetinaScreen AI takes a fundus photograph, runs it through an image-quality gate, grades DR severity across 5 classes, and returns the prediction alongside two complementary explanations (Grad-CAM + SHAP), a calibrated certainty level, and a recommendation on whether professional review is needed — all before a specialist ever looks at the image.
+Diabetic retinopathy is a leading cause of preventable blindness in working-age adults, and early-stage disease is often asymptomatic — which is exactly why regular screening matters and why screening bottlenecks (too few specialists, too many patients) are a real problem. RetinaScreen AI takes a fundus photograph, runs it through an image-quality gate, grades DR severity across 5 classes, and returns the prediction alongside two complementary explanations (Grad-CAM + SHAP), a calibrated certainty level, and a recommendation on whether professional review is needed — all presented in a fast, responsive React dashboard.
+
+---
 
 ## Key Features
 
-- 5-class DR severity grading (ICDR scale) from a single fundus photograph
-- **Image-quality gate** that requests a retake instead of grading an unusable image
-- Grad-CAM heatmaps highlighting the retinal regions driving each prediction
-- SHAP attribution as a second, complementary explanation method
-- **Calibrated confidence** — a raw softmax score reported alongside a HIGH/LOW certainty flag, not just the number on its own
-- Plain-language screening recommendation, with review urgency tied to certainty
-- Clean, responsive Next.js UI designed for tablets and low-spec devices in clinic/camp settings
-- FastAPI backend, deployed on Render; Next.js frontend on Vercel
+- **5-Class DR Severity Grading** (ICDR scale: No DR, Mild, Moderate, Severe, PDR) from a single fundus photograph.
+- **Image-Quality Gate**: Evaluates focus, contrast, and exposure to request a retake instead of grading an unusable image.
+- **Dual XAI Explanations**:
+  - **Grad-CAM**: Spatial heatmaps highlighting visual regions driving predictions.
+  - **SHAP**: Pixel-level attribution scores for secondary validation.
+- **Calibrated Confidence**: Raw softmax reported alongside a HIGH/LOW certainty flag.
+- **Screening Recommendations**: Plain-language guidance with urgency tied to model certainty.
+- **Modern React + Vite Frontend**: High-performance, single-page UI built with React, TypeScript, Tailwind CSS, and Lucide icons.
+- **Production-Ready Architecture**: FastAPI backend ready for Render deployment and React frontend optimized for Vercel/Netlify.
+
+---
 
 ## System Architecture
 
 ```mermaid
 flowchart TD
-    A[Fundus Image] --> B{Image Quality Check}
-    B -->|Poor| C[Request Retake]
-    B -->|Good| D["Preprocessing<br/>(Original + CLAHE)"]
-    D --> E["EfficientNetV2-S<br/>(Transfer-Learned)"]
-    E --> F[5-Class DR Prediction]
-    F --> G[Confidence + Calibration]
-    F --> H[Grad-CAM Heatmap]
-    F --> I[SHAP Attribution]
-    G --> J[Screening Result]
+    A[Fundus Image Upload] --> B{Image Quality Gate}
+    B -->|Poor Quality| C[Request Retake / Warning]
+    B -->|Good Quality| D["Preprocessing<br/>(CLAHE & Standard Resizing)"]
+    D --> E["Ensemble Model<br/>(EfficientNet-B4 + ViT)"]
+    E --> F[5-Class DR Severity Prediction]
+    F --> G[Confidence & Uncertainty Calibration]
+    F --> H[Grad-CAM Heatmap Generation]
+    F --> I[SHAP Attribution Map]
+    G --> J[Screening Summary]
     H --> J
     I --> J
     J --> K[FastAPI Backend]
-    K --> L[Next.js Frontend]
-    L --> M[Healthcare Worker]
-    M --> N[Professional Ophthalmic Review]
+    K --> L[Vite + React Single-Page Application]
+    L --> M[Healthcare Worker Dashboard]
+    M --> N[Ophthalmic Review Referral]
 
     style E fill:#4F46E5,color:#fff
     style N fill:#DC2626,color:#fff
 ```
 
+---
+
 ## Research Questions
 
-The build is treated as a set of testable questions, not just an implementation — this is what separates a screening *system* from "trained a CNN on a dataset." Each is answered empirically in Phase 7 of the [Implementation Plan](./IMPLEMENTATION_PLAN.md):
+1. **Does CLAHE preprocessing improve classification over raw fundus images?** — Evaluated via Original-only vs. CLAHE-enhanced pipelines.
+2. **Which pretrained backbone generalizes best on this dataset?** — EfficientNet-B4 vs. ViT-B16 vs. ConvNeXt baselines.
+3. **Does ensemble modeling outperform single architectures?** — Weighted probability averaging of EfficientNet-B4 and ViT.
+4. **Do Grad-CAM and SHAP agree on feature attribution?** — Cross-verifying explainability regions for diagnostic confidence.
+5. **How does performance degrade on lower-quality images?** — Stratified performance evaluation across image quality metrics.
+6. **How well-calibrated are confidence scores?** — Reliability diagrams + Expected Calibration Error (ECE).
 
-1. **Does CLAHE preprocessing improve classification over raw fundus images?** — Original-only vs CLAHE-only vs Original+CLAHE-as-augmentation.
-2. **Which pretrained backbone generalizes best on this dataset?** — EfficientNetV2-S vs ConvNeXt-Tiny vs Swin-Tiny vs ResNet50/DenseNet121 baselines.
-3. **Does modeling DR severity as ordinal (rather than purely categorical) improve grading?** — standard softmax vs an ordinal classification head.
-4. **Do Grad-CAM and SHAP agree on what's driving a prediction?** — cross-check explanation consistency rather than reporting each in isolation.
-5. **How does performance degrade on lower-quality images?** — metrics stratified by the image-quality score.
-6. **How well-calibrated are the model's confidence scores?** — reliability diagrams + Expected Calibration Error, not raw softmax alone.
-
-## Model Selection
-
-**Primary: EfficientNetV2-S**, ImageNet-pretrained, fine-tuned in two phases — benchmarked against a deliberately staged comparison set rather than picked and shipped on assumption:
-
-| Architecture | Role | Grad-CAM Fit | Data Efficiency | Notes |
-|---|---|---|---|---|
-| **EfficientNetV2-S** | **Primary** | Native | High | Best accuracy/compute trade-off at ~3k images; standard backbone in DR-grading literature |
-| ConvNeXt-Tiny | Comparison / ensemble candidate | Native | High | Modernized CNN, competitive with transformers, stays Grad-CAM-friendly |
-| Swin-Tiny | Comparison only | Needs Attention Rollout | Lower | Run for the experiment, not for production — attention-based explanations are coarser than Grad-CAM |
-| ResNet50 | Baseline | Native | High | Classic baseline to quantify what the modern backbones actually buy you |
-| DenseNet121 | Baseline | Native | High | Second baseline; dense connectivity sometimes helps on small medical datasets |
-
-Pick the deployed model by **Macro-F1 + Quadratic Weighted Kappa (QWK) + per-class recall on Severe NPDR/PDR** — not raw accuracy. A model that's 96% accurate but misses proliferative cases is worse than one that's 91% accurate and catches them.
+---
 
 ## Tech Stack
 
-**Frontend:** Next.js (App Router) + TypeScript + Tailwind CSS
-**Backend:** FastAPI + Python 3.10+ + Uvicorn
-**Deep Learning:** PyTorch + torchvision (EfficientNetV2-S transfer learning)
-**Explainability:** `pytorch-grad-cam`, `shap`
-**Image Processing:** OpenCV, Pillow, Albumentations (augmentation), CLAHE (contrast enhancement)
-**Deployment:** Vercel (frontend), Render (backend + model serving)
+### Frontend
+- **Framework:** React 18 (Vite SPA architecture)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS + PostCSS
+- **Icons & UI:** Lucide React icons, Tailwind Merge, `clsx`
+- **Build Tool:** Vite 5
+
+### Backend & AI Pipeline
+- **API Server:** FastAPI + Uvicorn + Pydantic v2
+- **Deep Learning Framework:** TensorFlow 2.15+ / Keras 3
+- **Architectures:** EfficientNet-B4 & Vision Transformer (ViT)
+- **Explainability (XAI):** `tf-explain` (Grad-CAM), `shap`
+- **Image Processing:** OpenCV (`opencv-python-headless`), Pillow, Albumentations
+
+### Deployment & Infrastructure
+- **Frontend Hosting:** Vercel / Static Web Hosting
+- **Backend Hosting:** Render / Docker container
+- **Model Storage:** Keras format (`.keras`), configuration JSONs
+
+---
+
+## Dataset
+
+- **Format:** Retinal Fundus Photographs (Original & CLAHE processed)
+- **Classes (5-Grade ICDR Scale):**
+  1. `0` - No DR
+  2. `1` - Mild NPDR
+  3. `2` - Moderate NPDR
+  4. `3` - Severe NPDR
+  5. `4` - Proliferative DR (PDR)
+- **Preprocessing:** Contrast Limited Adaptive Histogram Equalization (CLAHE) applied to green-channel extracted fundus photographs for lesion enhancement.
+
+---
+
+## Explainability (XAI)
+
+- **Grad-CAM**: Generates coarse localization heatmaps indicating regions (e.g. microaneurysms, hemorrhages, hard exudates) influencing the network's prediction.
+- **SHAP (SHapley Additive exPlanations)**: Provides granular feature-attribution scores across input pixels.
+- **Interactive Viewer**: The React frontend provides side-by-side comparative views and interactive toggle overlays for clinical inspection.
+
+---
 
 ## Project Structure
 
@@ -127,52 +160,91 @@ DR Classification/
 │   │       ├── predict.py
 │   │       └── health.py
 │   ├── weights/
-│   │   └── efficientnetv2s_best.pth
+│   │   ├── .gitkeep
+│   │   ├── efficientnet_b4_config.json
+│   │   └── ensemble_efficientnet_b4_vit_b16_config.json
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
-│   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── globals.css
-│   ├── components/
-│   │   ├── header.tsx
-│   │   ├── upload-zone.tsx
-│   │   ├── results-panel.tsx
-│   │   ├── explanation-viewer.tsx
-│   │   └── confidence-bar.tsx
-│   ├── lib/
-│   │   └── api.ts
-│   └── package.json
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── confidence-bar.tsx
+│   │   │   ├── explanation-viewer.tsx
+│   │   │   ├── results-panel.tsx
+│   │   │   └── upload-zone.tsx
+│   │   ├── lib/
+│   │   │   └── api.ts
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   └── vite-env.d.ts
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.ts
+│   ├── tsconfig.json
+│   └── vercel.json
 ├── notebooks/
 │   ├── 01_eda.ipynb
 │   ├── 02_training_colab.ipynb
-│   └── 03_evaluation.ipynb
-├── docs/
+│   ├── 03_evaluation.ipynb
+│   └── Unified_DR_Pipeline.ipynb
 ├── .env.example
 ├── .gitignore
 ├── IMPLEMENTATION_PLAN.md
 └── README.md
 ```
 
+---
+
 ## Getting Started
 
-### Backend Setup
+### 1. Prerequisites
+- **Node.js** (v18+) & **npm**
+- **Python** (v3.10+)
+
+### 2. Backend Setup
 ```bash
 cd backend
 python -m venv venv
-# On Linux/macOS: source venv/bin/activate
-# On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
 
-### Frontend Setup
+# On Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# On Linux/macOS:
+source venv/bin/activate
+
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+The FastAPI backend will run at `http://localhost:8000`. API docs available at `http://localhost:8000/docs`.
+
+### 3. Frontend Setup (React + Vite)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+The React development server will start at `http://localhost:5173`.
+
+---
+
+## API Reference
+
+### `POST /predict`
+Accepts a retinal fundus image (`multipart/form-data`) and returns grading predictions, calibration flags, and base64-encoded XAI visual overlays.
+
+### `GET /health`
+Returns system status, active model configuration, and backend readiness.
+
+---
+
+## Deployment
+
+- **Frontend (Vite + React)**: Deploy to Vercel, Netlify, or AWS S3/CloudFront. Set environment variable `VITE_API_URL` to point to the backend URL.
+- **Backend (FastAPI)**: Deploy to Render, Railway, or Fly.io using Docker or direct Python execution. Ensure `.keras` weight files are placed in `backend/weights/`.
+
+---
 
 ## License
-MIT
+
+This project is licensed under the [MIT License](LICENSE).
