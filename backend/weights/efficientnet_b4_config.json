@@ -1,0 +1,32 @@
+{
+    "model_name": "efficientnet_b4",
+    "image_size": [
+        224,
+        224
+    ],
+    "batch_size": 16,
+    "class_names": [
+        "Mild_NPDR",
+        "Moderate_NPDR",
+        "No_DR",
+        "Proliferative_DR",
+        "Severe_NPDR"
+    ],
+    "class_mapping": {
+        "Mild_NPDR": 0,
+        "Moderate_NPDR": 1,
+        "No_DR": 2,
+        "Proliferative_DR": 3,
+        "Severe_NPDR": 4
+    },
+    "num_classes": 5,
+    "dataset": "original",
+    "output_activation": "softmax",
+    "efficientnet_model": "efficientnet_b4_best.keras",
+    "test_results": {
+        "efficientnet_b4": {
+            "accuracy": 0.7870879120879121,
+            "macro_f1": 0.6049159995451052
+        }
+    }
+}

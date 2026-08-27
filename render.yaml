@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: retinascreen-backend
+    env: docker
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: MODEL_CONFIG_PATH
+        value: backend/weights/efficientnet_b4_config.json

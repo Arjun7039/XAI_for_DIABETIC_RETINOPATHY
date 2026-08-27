@@ -1,0 +1,50 @@
+{
+    "model_name": "ensemble_efficientnet_b4_vit_b16",
+    "image_size": [
+        224,
+        224
+    ],
+    "batch_size": 16,
+    "class_names": [
+        "Mild_NPDR",
+        "Moderate_NPDR",
+        "No_DR",
+        "Proliferative_DR",
+        "Severe_NPDR"
+    ],
+    "class_mapping": {
+        "Mild_NPDR": 0,
+        "Moderate_NPDR": 1,
+        "No_DR": 2,
+        "Proliferative_DR": 3,
+        "Severe_NPDR": 4
+    },
+    "num_classes": 5,
+    "dataset": "original",
+    "models": [
+        "EfficientNet-B4",
+        "ViT-B/16"
+    ],
+    "vit_preset": "vit_base_patch16_224_imagenet",
+    "ensemble_method": "weighted_probability_average",
+    "efficientnet_weight": 0.0,
+    "vit_weight": 1.0,
+    "output_activation": "softmax",
+    "efficientnet_model": "efficientnet_b4_best.keras",
+    "vit_model": "vit_b16_best.keras",
+    "ensemble_model": "ensemble_effnet_vit_best.keras",
+    "test_results": {
+        "efficientnet_b4": {
+            "accuracy": 0.7870879120879121,
+            "macro_f1": 0.6049159995451052
+        },
+        "vit_b16": {
+            "accuracy": 0.7912087912087912,
+            "macro_f1": 0.6265493799325519
+        },
+        "ensemble": {
+            "accuracy": 0.7912087912087912,
+            "macro_f1": 0.6265493799325519
+        }
+    }
+}

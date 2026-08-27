@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+.venv/
+env/
+
+# Model weights (too large for git — use Git LFS or external hosting)
+*.pth
+*.onnx
+*.pt
+*.keras
+*.h5
+
+# Datasets & Archives
+*.zip
+*.tar
+*.gz
+Diabetic_Retinopathy_dataset/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+.next/
+out/
+.turbo/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Misc
+*.log
+tmp/
