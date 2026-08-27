@@ -1,25 +1,23 @@
 """
 Grad-CAM heatmap generator for RetinaScreen AI (TensorFlow / Keras 3).
+Optimized with graph caching for 512MB RAM server deployment.
 """
 
 from __future__ import annotations
 
 import base64
+import gc
 import cv2
 import numpy as np
 import tensorflow as tf
 from numpy.typing import NDArray
 
+_GRAD_MODEL_CACHE: dict[int, tf.keras.Model] = {}
+
 
 def _find_last_conv_layer(model: tf.keras.Model) -> str | None:
-    """
-    Walk the model graph to find the last Conv2D layer name.
-    Compatible with Keras 3 (no layer.output_shape attribute).
-    """
+    """Walk the model graph to find the last Conv2D layer name."""
     last_conv_name = None
-
-    # If the model wraps a nested backbone (e.g., EfficientNet functional model),
-    # check inner layers first.
     target_model = model
     for layer in model.layers:
         if isinstance(layer, tf.keras.Model):
@@ -27,10 +25,8 @@ def _find_last_conv_layer(model: tf.keras.Model) -> str | None:
             break
 
     for layer in target_model.layers:
-        # Check by layer type — reliable across Keras 2 & 3
         if isinstance(layer, (tf.keras.layers.Conv2D, tf.keras.layers.DepthwiseConv2D)):
             last_conv_name = layer.name
-        # Also check for layers whose output is 4D (batch, h, w, c) via shape
         else:
             try:
                 out_shape = layer.output.shape
@@ -40,6 +36,36 @@ def _find_last_conv_layer(model: tf.keras.Model) -> str | None:
                 continue
 
     return last_conv_name
+
+
+def _get_or_create_grad_model(model: tf.keras.Model) -> tf.keras.Model | None:
+    """Cache the sub-graph model to avoid creating new Keras models on every request."""
+    model_id = id(model)
+    if model_id in _GRAD_MODEL_CACHE:
+        return _GRAD_MODEL_CACHE[model_id]
+
+    last_conv_layer_name = _find_last_conv_layer(model)
+    if not last_conv_layer_name:
+        return None
+
+    target_model = model
+    for layer in model.layers:
+        if isinstance(layer, tf.keras.Model):
+            try:
+                layer.get_layer(last_conv_layer_name)
+                target_model = layer
+                break
+            except ValueError:
+                continue
+
+    last_conv_layer = target_model.get_layer(last_conv_layer_name)
+
+    grad_model = tf.keras.models.Model(
+        inputs=target_model.input,
+        outputs=[last_conv_layer.output, target_model.output],
+    )
+    _GRAD_MODEL_CACHE[model_id] = grad_model
+    return grad_model
 
 
 def generate_gradcam_overlay(
@@ -55,44 +81,21 @@ def generate_gradcam_overlay(
     h, w = original_bgr.shape[:2]
 
     try:
-        last_conv_layer_name = _find_last_conv_layer(model)
-
-        if not last_conv_layer_name:
-            raise ValueError("Could not find a convolutional layer for Grad-CAM.")
-
-        # Find the model that actually contains the conv layer
-        target_model = model
-        for layer in model.layers:
-            if isinstance(layer, tf.keras.Model):
-                try:
-                    layer.get_layer(last_conv_layer_name)
-                    target_model = layer
-                    break
-                except ValueError:
-                    continue
-
-        last_conv_layer = target_model.get_layer(last_conv_layer_name)
-
-        # Build a mini-model using the target_model (bypasses disconnected parent graphs)
-        grad_model = tf.keras.models.Model(
-            inputs=target_model.input,
-            outputs=[last_conv_layer.output, target_model.output],
-        )
+        grad_model = _get_or_create_grad_model(model)
+        if grad_model is None:
+            raise ValueError("Could not construct Grad-CAM sub-model graph.")
 
         with tf.GradientTape() as tape:
-            # If target_model is an inner model, we should pass the tensor through
-            # the parent model's preprocessing layers first. But for Keras 3 standard
-            # wrappers, passing it directly is usually mathematically identical if 
-            # there are no prep layers.
             conv_outputs, predictions = grad_model(tensor)
             if target_category is None:
                 target_category = tf.argmax(predictions[0])
             loss = predictions[:, target_category]
 
         grads = tape.gradient(loss, conv_outputs)
+        del tape  # Release tape memory immediately
 
         if grads is None:
-            raise ValueError("Gradient computation returned None — model graph may be disconnected.")
+            raise ValueError("Gradient computation returned None.")
 
         pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
         conv_outputs = conv_outputs[0]
@@ -105,26 +108,22 @@ def generate_gradcam_overlay(
         if max_val > 0:
             heatmap = heatmap / max_val
 
-        heatmap = heatmap.numpy()
+        heatmap_np = heatmap.numpy()
 
-        # Clean up TensorFlow tape and model objects to free RAM immediately
-        del tape
-        del grad_model
-        import gc
-        gc.collect()
-
-        heatmap = cv2.resize(heatmap, (w, h))
-        heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
+        heatmap_resized = cv2.resize(heatmap_np, (w, h))
+        heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
 
         overlay = cv2.addWeighted(original_bgr, 0.6, heatmap_color, 0.4, 0)
 
         _, buffer = cv2.imencode(".png", overlay)
         encoded = base64.b64encode(buffer).decode("utf-8")
+
+        gc.collect()
         return encoded
 
     except Exception as e:
         print(f"[WARN] Grad-CAM generation failed: {e}")
-        return _generate_dummy_overlay(original_bgr, "Grad-CAM Unavailable")
+        return _generate_dummy_overlay(original_bgr, "Grad-CAM")
 
 
 def _generate_dummy_overlay(original_bgr: NDArray[np.uint8], text: str = "Grad-CAM") -> str:
