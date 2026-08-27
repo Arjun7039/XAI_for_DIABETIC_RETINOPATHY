@@ -5,6 +5,15 @@ FastAPI application entry point for RetinaScreen AI.
 from __future__ import annotations
 
 import os
+import gc
+
+# ── Memory Optimization for 512MB RAM Containers (Render Free Tier) ──
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["MALLOC_ARENA_MAX"] = "2"
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

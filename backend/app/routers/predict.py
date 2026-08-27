@@ -119,4 +119,7 @@ async def predict_retinopathy(
         model_version=config.get("model_name", "efficientnetv2s-v1"),
     )
 
+    import gc
+    gc.collect()
+
     return response

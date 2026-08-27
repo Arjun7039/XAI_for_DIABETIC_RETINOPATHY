@@ -63,6 +63,12 @@ def generate_shap_overlay(
         heatmap = cv2.applyColorMap(saliency_resized, cv2.COLORMAP_VIRIDIS)
         overlay = cv2.addWeighted(original_bgr, 0.5, heatmap, 0.5, 0)
 
+        # Clean up TensorFlow tape and tensors to free RAM
+        del tape
+        del input_tensor
+        import gc
+        gc.collect()
+
         _, buffer = cv2.imencode(".png", overlay)
         return base64.b64encode(buffer).decode("utf-8")
 

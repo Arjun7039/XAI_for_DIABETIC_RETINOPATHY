@@ -107,6 +107,12 @@ def generate_gradcam_overlay(
 
         heatmap = heatmap.numpy()
 
+        # Clean up TensorFlow tape and model objects to free RAM immediately
+        del tape
+        del grad_model
+        import gc
+        gc.collect()
+
         heatmap = cv2.resize(heatmap, (w, h))
         heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
 
