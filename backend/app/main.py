@@ -7,7 +7,9 @@ from __future__ import annotations
 import os
 import gc
 
-# ── Memory Optimization for 512MB RAM Containers (Render Free Tier) ──
+# ── Memory & CPU Optimization for 512MB RAM Containers (Render Free Tier) ──
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"

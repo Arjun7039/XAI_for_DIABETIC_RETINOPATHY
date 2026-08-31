@@ -29,17 +29,40 @@ def load_config(config_path: str) -> dict:
         "num_classes": 5
     }
 
+def _is_valid_keras_file(filepath: str) -> bool:
+    """Return True if path exists and size > 1MB (not a Git LFS text pointer file)."""
+    return os.path.exists(filepath) and os.path.getsize(filepath) > 1_000_000
+
+
 def load_model(config: dict) -> tf.keras.Model:
     weights_dir = "weights" if os.path.exists("weights/efficientnet_b4_config.json") else "backend/weights"
-    
-    eff_path = os.path.join(weights_dir, config.get("efficientnet_model", "efficientnet_b4_best.keras"))
+    eff_filename = config.get("efficientnet_model", "efficientnet_b4_best.keras")
+    eff_path = os.path.join(weights_dir, eff_filename)
 
-    if os.path.exists(eff_path):
-        print(f"[INFO] Loading EfficientNet-B4 from {eff_path}")
-        eff_model = tf.keras.models.load_model(eff_path, compile=False)
-        return eff_model
+    # 1. Check if weights file is missing or is an invalid Git LFS text pointer (< 1MB)
+    if not _is_valid_keras_file(eff_path):
+        weights_url = os.getenv("MODEL_WEIGHTS_URL")
+        if weights_url:
+            print(f"[INFO] Valid weights file not found locally (missing or LFS pointer). Downloading from MODEL_WEIGHTS_URL: {weights_url}")
+            try:
+                import urllib.request
+                os.makedirs(os.path.dirname(eff_path) or ".", exist_ok=True)
+                urllib.request.urlretrieve(weights_url, eff_path)
+                print(f"[INFO] Successfully downloaded weights ({os.path.getsize(eff_path)} bytes) to {eff_path}")
+            except Exception as e:
+                print(f"[ERROR] Failed to download weights from {weights_url}: {e}")
+
+    # 2. Try loading the model file safely
+    if _is_valid_keras_file(eff_path):
+        try:
+            print(f"[INFO] Loading EfficientNet-B4 from {eff_path} ({os.path.getsize(eff_path)} bytes)...")
+            eff_model = tf.keras.models.load_model(eff_path, compile=False)
+            print("[INFO] EfficientNet-B4 model loaded successfully!")
+            return eff_model
+        except Exception as e:
+            print(f"[WARN] Failed to load model from {eff_path}: {e}. Using fallback dev model.")
     else:
-        print(f"[WARN] Weights file not found at {eff_path}. Using fallback dev model.")
+        print(f"[WARN] Weights file not found or invalid at {eff_path}. Using fallback dev model.")
         # Fallback for dev mode
         from tensorflow.keras.applications import EfficientNetB4
         from tensorflow.keras import layers, models

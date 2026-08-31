@@ -10,7 +10,7 @@ venv/
 .venv/
 env/
 
-# Model weights (too large for git — use Git LFS or external hosting)
+# Model weights (large binary files >100MB — use Git LFS or MODEL_WEIGHTS_URL env var on Render)
 *.pth
 *.onnx
 *.pt
