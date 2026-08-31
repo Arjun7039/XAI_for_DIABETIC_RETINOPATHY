@@ -49,9 +49,10 @@ Diabetic retinopathy is a leading cause of preventable blindness in working-age 
 
 - **5-Class DR Severity Grading** (ICDR scale: No DR, Mild, Moderate, Severe, PDR) from a single fundus photograph.
 - **Image-Quality Gate**: Evaluates focus, contrast, and exposure to request a retake instead of grading an unusable image.
-- **Dual XAI Explanations**:
+- **Triple XAI Explanations**:
   - **Grad-CAM**: Spatial heatmaps highlighting visual regions driving predictions.
-  - **SHAP**: Pixel-level attribution scores for secondary validation.
+  - **Gradient Saliency**: Pixel-level sensitivity maps displaying first-order input gradients.
+  - **SHAP**: Game-theoretic Shapley attributions rendering positive (risk-elevating) and negative (protective) feature contributions.
 - **Calibrated Confidence**: Raw softmax reported alongside a HIGH/LOW certainty flag.
 - **Screening Recommendations**: Plain-language guidance with urgency tied to model certainty.
 - **Modern React + Vite Frontend**: High-performance, single-page UI built with React, TypeScript, Tailwind CSS, and Lucide icons.
@@ -70,17 +71,18 @@ flowchart TD
     E --> F[5-Class DR Severity Prediction]
     F --> G[Confidence & Uncertainty Calibration]
     F --> H[Grad-CAM Heatmap Generation]
-    F --> I[SHAP Attribution Map]
-    G --> J[Screening Summary]
-    H --> J
-    I --> J
-    J --> K[FastAPI Backend]
-    K --> L[Vite + React Single-Page Application]
-    L --> M[Healthcare Worker Dashboard]
-    M --> N[Ophthalmic Review Referral]
+    F --> I[Gradient Saliency Map]
+    F --> J[SHAP Attribution Map]
+    G --> K[Screening Summary]
+    H --> K
+    I --> K
+    K --> L[FastAPI Backend]
+    L --> M[Vite + React Single-Page Application]
+    M --> N[Healthcare Worker Dashboard]
+    N --> O[Ophthalmic Review Referral]
 
     style E fill:#4F46E5,color:#fff
-    style N fill:#DC2626,color:#fff
+    style O fill:#DC2626,color:#fff
 ```
 
 ---
@@ -135,8 +137,9 @@ flowchart TD
 ## Explainability (XAI)
 
 - **Grad-CAM**: Generates coarse localization heatmaps indicating regions (e.g. microaneurysms, hemorrhages, hard exudates) influencing the network's prediction.
-- **SHAP (SHapley Additive exPlanations)**: Provides granular feature-attribution scores across input pixels.
-- **Interactive Viewer**: The React frontend provides side-by-side comparative views and interactive toggle overlays for clinical inspection.
+- **Gradient Saliency**: Computes input-pixel sensitivity gradients $\left|\frac{\partial y_c}{\partial x}\right|$ for fine-grained structure verification.
+- **SHAP (SHapley Additive exPlanations)**: Solves spatial KernelSHAP linear regression over image superpixel coalitions, outputting positive (red) and negative (blue) Shapley feature attributions.
+- **Interactive Viewer**: The React frontend provides side-by-side comparative views with tabs and interactive visual legends for clinical inspection.
 
 ---
 
@@ -150,6 +153,7 @@ DR Classification/
 │   │   ├── models/
 │   │   │   ├── inference.py
 │   │   │   ├── gradcam.py
+│   │   │   ├── saliency_explainer.py
 │   │   │   └── shap_explainer.py
 │   │   ├── preprocessing/
 │   │   │   ├── quality_check.py

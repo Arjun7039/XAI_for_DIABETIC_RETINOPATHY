@@ -25,7 +25,7 @@ def load_config(config_path: str) -> dict:
             return json.load(f)
     print(f"[WARN] Config file '{config_path}' not found. Using defaults.")
     return {
-        "class_names": ["No_DR", "Mild", "Moderate", "Severe", "Proliferative_DR"],
+        "class_names": ["Mild_NPDR", "Moderate_NPDR", "No_DR", "Proliferative_DR", "Severe_NPDR"],
         "num_classes": 5
     }
 
@@ -68,11 +68,11 @@ def run_inference(
     probs = preds[0]  # First item in batch
 
     class_index = int(np.argmax(probs))
-    confidence = float(probs[class_index])
+    confidence = float(np.clip(probs[class_index], 0.0, 1.0))
     prediction = class_names[class_index]
 
     probabilities_dict = {
-        class_names[i]: float(probs[i]) for i in range(len(class_names))
+        class_names[i]: float(np.clip(probs[i], 0.0, 1.0)) for i in range(len(class_names))
     }
 
     # Certainty calibration threshold logic

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Header } from "./components/header";
 import { UploadZone } from "./components/upload-zone";
 import { ResultsPanel } from "./components/results-panel";
 import { ExplanationViewer } from "./components/explanation-viewer";
@@ -50,26 +51,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-8 max-w-7xl mx-auto space-y-8 font-sans">
-      {/* ── Top Navigation Bar ──────────────────────────── */}
-      <header className="flex items-center justify-between py-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-500/15 border border-indigo-500/25 rounded-2xl text-indigo-400">
-            <Activity className="w-6 h-6 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              RetinaScreen AI <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Vite + React</span>
-            </h1>
-            <p className="text-xs text-slate-400">ICDR Clinical Retina Diagnostics System</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+      {/* ── Top Header Bar ──────────────────────────────── */}
+      <Header />
 
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-          <span>Backend Connected (127.0.0.1:8000)</span>
-        </div>
-      </header>
+      <main className="max-w-7xl mx-auto p-4 sm:p-8 space-y-8">
 
       {/* ── Hero Banner ──────────────────────────────────── */}
       <div className="relative rounded-3xl p-8 sm:p-10 overflow-hidden border border-white/[0.06] animate-fade-in-up">
@@ -86,7 +72,7 @@ export default function App() {
           {/* Tech stack pill */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-400/25 text-indigo-300 text-xs font-semibold shadow-[0_0_20px_rgba(99,102,241,0.15)] backdrop-blur-sm">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-            EfficientNet-B4 · Grad-CAM · Gradient Saliency
+            EfficientNet-B4 · Grad-CAM · Saliency · SHAP
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
@@ -190,12 +176,14 @@ export default function App() {
               <ExplanationViewer
                 originalImageSrc={previewUrl}
                 gradcamOverlayB64={result.gradcam_overlay}
+                saliencyOverlayB64={result.saliency_overlay}
                 shapOverlayB64={result.shap_overlay}
               />
             </div>
           )}
         </div>
       </div>
+      </main>
     </div>
   );
 }

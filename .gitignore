@@ -23,10 +23,12 @@ env/
 *.gz
 Diabetic_Retinopathy_dataset/
 
-# Environment
+# Environment & Local Interview Prep Files
 .env
 .env.local
 .env.*.local
+DR_simple.md
+
 
 # Node
 node_modules/

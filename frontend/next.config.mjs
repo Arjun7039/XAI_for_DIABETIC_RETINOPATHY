@@ -1,9 +1,2 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  reactStrictMode: true,
-  images: {
-    unoptimized: true,
-  },
-};
-
-export default nextConfig;
+// Unused Next.js artifact - project uses Vite (vite.config.ts)
+export default {};

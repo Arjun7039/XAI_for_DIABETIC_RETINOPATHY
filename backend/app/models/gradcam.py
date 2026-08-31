@@ -48,24 +48,33 @@ def _get_or_create_grad_model(model: tf.keras.Model) -> tf.keras.Model | None:
     if not last_conv_layer_name:
         return None
 
-    target_model = model
+    # First try building directly on top-level model
+    try:
+        last_conv_layer = model.get_layer(last_conv_layer_name)
+        grad_model = tf.keras.models.Model(
+            inputs=model.input,
+            outputs=[last_conv_layer.output, model.output],
+        )
+        _GRAD_MODEL_CACHE[model_id] = grad_model
+        return grad_model
+    except Exception:
+        pass
+
+    # Fallback to sub-model graph
     for layer in model.layers:
         if isinstance(layer, tf.keras.Model):
             try:
-                layer.get_layer(last_conv_layer_name)
-                target_model = layer
-                break
-            except ValueError:
+                last_conv_layer = layer.get_layer(last_conv_layer_name)
+                grad_model = tf.keras.models.Model(
+                    inputs=layer.input,
+                    outputs=[last_conv_layer.output, layer.output],
+                )
+                _GRAD_MODEL_CACHE[model_id] = grad_model
+                return grad_model
+            except Exception:
                 continue
 
-    last_conv_layer = target_model.get_layer(last_conv_layer_name)
-
-    grad_model = tf.keras.models.Model(
-        inputs=target_model.input,
-        outputs=[last_conv_layer.output, target_model.output],
-    )
-    _GRAD_MODEL_CACHE[model_id] = grad_model
-    return grad_model
+    return None
 
 
 def generate_gradcam_overlay(
@@ -88,8 +97,10 @@ def generate_gradcam_overlay(
         with tf.GradientTape() as tape:
             conv_outputs, predictions = grad_model(tensor)
             if target_category is None:
-                target_category = tf.argmax(predictions[0])
-            loss = predictions[:, target_category]
+                cat_idx = int(tf.argmax(predictions[0]).numpy())
+            else:
+                cat_idx = int(target_category)
+            loss = predictions[:, cat_idx]
 
         grads = tape.gradient(loss, conv_outputs)
         del tape  # Release tape memory immediately
@@ -109,7 +120,6 @@ def generate_gradcam_overlay(
             heatmap = heatmap / max_val
 
         heatmap_np = heatmap.numpy()
-
         heatmap_resized = cv2.resize(heatmap_np, (w, h))
         heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
 

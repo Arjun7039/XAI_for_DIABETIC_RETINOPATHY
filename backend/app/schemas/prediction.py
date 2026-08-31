@@ -54,8 +54,11 @@ class PredictionResponse(BaseModel):
     gradcam_overlay: str = Field(
         ..., description="Base64-encoded PNG of the Grad-CAM heatmap overlay"
     )
+    saliency_overlay: Optional[str] = Field(
+        None, description="Base64-encoded PNG of the Gradient Saliency map overlay"
+    )
     shap_overlay: Optional[str] = Field(
-        None, description="Base64-encoded PNG of the SHAP attribution overlay (on-demand)"
+        None, description="Base64-encoded PNG of the SHAP Shapley attribution overlay"
     )
     model_version: str = Field(default="efficientnetv2s-v1")
 

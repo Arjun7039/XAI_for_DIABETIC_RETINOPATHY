@@ -10,8 +10,9 @@ export interface PredictionResult {
   certainty: "HIGH" | "LOW";
   review_recommendation: "Recommended" | "Strongly Recommended";
   image_quality: "good" | "poor";
-  gradcam_overlay: string; // base64 PNG
-  shap_overlay?: string;    // base64 PNG
+  gradcam_overlay: string;  // base64 PNG
+  saliency_overlay?: string; // base64 PNG
+  shap_overlay?: string;     // base64 PNG
   model_version: string;
 }
 
@@ -21,7 +22,8 @@ export interface QualityRejectResult {
   message: string;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+const RAW_API_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+export const API_BASE_URL = RAW_API_URL.replace(/\/+$/, "");
 
 export async function analyzeRetinalImage(
   file: File

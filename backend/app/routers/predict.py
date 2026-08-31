@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from app.models.gradcam import generate_gradcam_overlay
 from app.models.inference import run_inference
+from app.models.saliency_explainer import generate_saliency_overlay
 from app.models.shap_explainer import generate_shap_overlay
 from app.preprocessing.quality_check import check_image_quality
 from app.preprocessing.retinal_preprocessing import preprocess_for_inference
@@ -60,10 +61,15 @@ async def predict_retinopathy(
     # 1. Quality Gate Check
     passed_quality, quality_issues = check_image_quality(image_bgr)
     if not passed_quality:
+        if "non_retinal_image" in quality_issues:
+            msg = "Uploaded image does not appear to be a retinal fundus photograph (document/non-retinal photo detected)."
+        else:
+            msg = "Image quality insufficient for reliable grading. Please retake photo."
+
         reject_payload = QualityRejectResponse(
             image_quality="poor",
             quality_issues=quality_issues,
-            message="Image quality insufficient for reliable grading. Please retake photo.",
+            message=msg,
         )
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -73,7 +79,11 @@ async def predict_retinopathy(
     # Retrieve shared model and config instance from app state
     model = getattr(request.app.state, "model", None)
     config = getattr(request.app.state, "config", {})
-    class_names = getattr(request.app.state, "class_names", ["No_DR", "Mild", "Moderate", "Severe", "Proliferative_DR"])
+    class_names = getattr(
+        request.app.state,
+        "class_names",
+        ["Mild_NPDR", "Moderate_NPDR", "No_DR", "Proliferative_DR", "Severe_NPDR"],
+    )
 
     if model is None:
         raise HTTPException(
@@ -81,45 +91,63 @@ async def predict_retinopathy(
             detail="Model is not initialized on the server.",
         )
 
-    # 2. Preprocessing
-    use_clahe = config.get("use_clahe", False)
-    img_size = config.get("image_size", [224, 224])[0]
-    tensor = preprocess_for_inference(image_bgr, use_clahe=use_clahe, img_size=img_size)
+    try:
+        # 2. Preprocessing
+        use_clahe = config.get("use_clahe", False)
+        img_size_config = config.get("image_size", 224)
+        if isinstance(img_size_config, (list, tuple)):
+            img_size = int(img_size_config[0])
+        else:
+            img_size = int(img_size_config)
 
-    # 3. Model Inference
-    (
-        prediction,
-        class_index,
-        confidence,
-        probabilities,
-        certainty,
-        review_recommendation,
-    ) = run_inference(model, tensor, class_names=class_names)
+        tensor = preprocess_for_inference(image_bgr, use_clahe=use_clahe, img_size=img_size)
 
-    print(f"[DEBUG INFERENCE] Raw Probabilities Dict: {probabilities}")
-    print(f"[DEBUG INFERENCE] Selected Class: {prediction} (Index {class_index}) with Confidence: {confidence}")
+        # 3. Model Inference
+        (
+            prediction,
+            class_index,
+            confidence,
+            probabilities,
+            certainty,
+            review_recommendation,
+        ) = run_inference(model, tensor, class_names=class_names)
 
-    # 4. Generate Explainability Overlays (Grad-CAM & SHAP)
-    gradcam_b64 = generate_gradcam_overlay(
-        model, tensor, image_bgr, target_category=class_index
-    )
-    shap_b64 = generate_shap_overlay(model, tensor, image_bgr)
+        print(f"[DEBUG INFERENCE] Raw Probabilities Dict: {probabilities}")
+        print(f"[DEBUG INFERENCE] Selected Class: {prediction} (Index {class_index}) with Confidence: {confidence}")
 
-    # 5. Construct & Return Response
-    response = PredictionResponse(
-        prediction=prediction,
-        class_index=class_index,
-        confidence=confidence,
-        probabilities=probabilities,
-        certainty=certainty,
-        review_recommendation=review_recommendation,
-        image_quality="good",
-        gradcam_overlay=gradcam_b64,
-        shap_overlay=shap_b64,
-        model_version=config.get("model_name", "efficientnetv2s-v1"),
-    )
+        # 4. Generate Explainability Overlays (Grad-CAM, Saliency, SHAP)
+        gradcam_b64 = generate_gradcam_overlay(
+            model, tensor, image_bgr, target_category=class_index
+        )
+        saliency_b64 = generate_saliency_overlay(
+            model, tensor, image_bgr, target_category=class_index
+        )
+        shap_b64 = generate_shap_overlay(
+            model, tensor, image_bgr, target_category=class_index
+        )
 
-    import gc
-    gc.collect()
+        # 5. Construct & Return Response
+        response = PredictionResponse(
+            prediction=prediction,
+            class_index=class_index,
+            confidence=confidence,
+            probabilities=probabilities,
+            certainty=certainty,
+            review_recommendation=review_recommendation,
+            image_quality="good",
+            gradcam_overlay=gradcam_b64,
+            saliency_overlay=saliency_b64,
+            shap_overlay=shap_b64,
+            model_version=config.get("model_name", "efficientnet_b4"),
+        )
 
-    return response
+        import gc
+        gc.collect()
+
+        return response
+    except Exception as e:
+        print(f"[ERROR] Inference or postprocessing error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Inference process failed: {str(e)}",
+        )

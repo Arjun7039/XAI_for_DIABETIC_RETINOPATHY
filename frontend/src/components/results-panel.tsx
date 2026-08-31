@@ -77,7 +77,7 @@ export function ResultsPanel({ result, rejection, onRetakeRequested }: ResultsPa
                 key={issue}
                 className="px-2.5 py-0.5 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/25 font-mono text-[11px]"
               >
-                {issue}
+                {issue === "non_retinal_image" ? "non-retinal photo / document" : issue}
               </span>
             ))}
           </div>

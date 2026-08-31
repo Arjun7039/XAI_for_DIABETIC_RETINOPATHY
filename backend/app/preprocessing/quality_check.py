@@ -73,5 +73,15 @@ def check_image_quality(
     if contrast < contrast_thresh:
         issues.append("low_contrast")
 
+    # 4. Retinal fundus color signature check (Non-retinal document / photo detection)
+    # Retinal fundus photos are heavily red/orange dominated.
+    # Documents/marksheets are white/grey with equal R, G, B channels.
+    b_mean, g_mean, r_mean = [float(c) for c in cv2.mean(image_bgr)[:3]]
+    red_ratio = r_mean / (b_mean + 1e-5)
+    
+    # White background documents have high brightness across all channels and low red-ratio
+    if red_ratio < 1.35 or (b_mean > 110 and g_mean > 110 and r_mean > 110):
+        issues.append("non_retinal_image")
+
     passed = len(issues) == 0
     return passed, issues
