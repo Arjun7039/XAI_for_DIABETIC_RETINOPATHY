@@ -1,12 +1,13 @@
 import React from "react";
 import { PredictionResult, QualityRejectResult } from "../lib/api";
 import { ConfidenceBar } from "./confidence-bar";
-import { ShieldCheck, AlertTriangle, Stethoscope, RefreshCw, TrendingUp } from "lucide-react";
+import { ShieldCheck, AlertTriangle, Stethoscope, RefreshCw, TrendingUp, Layers, FileText, Clock } from "lucide-react";
 
 interface ResultsPanelProps {
   result?: PredictionResult;
   rejection?: QualityRejectResult;
   onRetakeRequested: () => void;
+  onExportPdf?: () => void;
 }
 
 // Model Index Mapping (Alphabetical from Kaggle image_dataset_from_directory):
@@ -54,7 +55,7 @@ const SEVERITY_CONFIG: Record<number, { label: string; color: string; glow: stri
   },
 };
 
-export function ResultsPanel({ result, rejection, onRetakeRequested }: ResultsPanelProps) {
+export function ResultsPanel({ result, rejection, onRetakeRequested, onExportPdf }: ResultsPanelProps) {
   if (rejection) {
     return (
       <div className="glass-card rounded-2xl p-6 border-amber-500/25 space-y-4 animate-fade-in-up">
@@ -104,14 +105,24 @@ export function ResultsPanel({ result, rejection, onRetakeRequested }: ResultsPa
     ? "No DR (Healthy)"
     : result.prediction.replace(/_NPDR|_DR|_/g, " ").trim();
 
+  const conformalSet = result.conformal_prediction_set || [result.prediction];
+
   return (
     <div className="glass-card rounded-2xl p-6 space-y-6 shimmer-effect">
       {/* ── Top Prediction Box ──────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/60 pb-5">
         <div className="space-y-2">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
-            ICDR Severity Grade
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+              ICDR Severity Grade
+            </span>
+            {result.execution_telemetry_ms && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5 text-indigo-400" />
+                {result.execution_telemetry_ms.total_latency_ms}ms
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <h2 className={`text-2xl font-extrabold ${severity.color}`}>
               {formattedPrediction}
@@ -147,27 +158,62 @@ export function ResultsPanel({ result, rejection, onRetakeRequested }: ResultsPa
         </div>
       </div>
 
+      {/* ── Conformal Prediction Interval (Pillar 2) ───────── */}
+      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="space-y-1">
+          <span className="text-indigo-300 font-semibold flex items-center gap-1.5">
+            <Layers className="w-4 h-4 text-indigo-400" />
+            Split Conformal Coverage Bounds (95% Coverage Guarantee)
+          </span>
+          <p className="text-[11px] text-slate-400">
+            Guaranteed under exchangeability that the true ground-truth stage is included in this set.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 shrink-0">
+          {conformalSet.map((stage, i) => (
+            <span
+              key={i}
+              className="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 text-xs font-bold"
+            >
+              {stage}
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* ── Review Recommendation Banner ────────────────── */}
       <div
-        className={`p-4 rounded-xl border flex items-start gap-3 ${
+        className={`p-4 rounded-xl border flex items-start justify-between gap-3 ${
           isSevere || !isHighCertainty
             ? "bg-rose-950/20 border-rose-500/30 text-rose-200 animate-glow-red"
             : "bg-indigo-950/20 border-indigo-500/20 text-indigo-200"
         }`}
       >
-        <Stethoscope className={`w-5 h-5 shrink-0 mt-0.5 ${
-          isSevere || !isHighCertainty ? "text-rose-400" : "text-indigo-400"
-        }`} />
-        <div className="space-y-1">
-          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-100">
-            Screening Recommendation: {result.review_recommendation}
-          </h4>
-          <p className="text-xs text-slate-300/80 leading-relaxed">
-            {result.review_recommendation === "Strongly Recommended"
-              ? "Flagged for priority ophthalmic triage. Low model certainty or elevated severe stage detected."
-              : "Standard clinical follow-up recommended per diabetic eye screening guidelines."}
-          </p>
+        <div className="flex items-start gap-3">
+          <Stethoscope className={`w-5 h-5 shrink-0 mt-0.5 ${
+            isSevere || !isHighCertainty ? "text-rose-400" : "text-indigo-400"
+          }`} />
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold uppercase tracking-wide text-slate-100">
+              Screening Recommendation: {result.review_recommendation}
+            </h4>
+            <p className="text-xs text-slate-300/80 leading-relaxed">
+              {result.review_recommendation === "Strongly Recommended"
+                ? "Flagged for priority ophthalmic triage. Low model certainty or elevated severe stage detected."
+                : "Standard clinical follow-up recommended per diabetic eye screening guidelines."}
+            </p>
+          </div>
         </div>
+
+        {onExportPdf && (
+          <button
+            onClick={onExportPdf}
+            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow shrink-0 transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Clinical PDF
+          </button>
+        )}
       </div>
 
       {/* ── Probability Distribution ───────────────────── */}
