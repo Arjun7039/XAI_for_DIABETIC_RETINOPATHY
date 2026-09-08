@@ -85,3 +85,35 @@ def check_image_quality(
 
     passed = len(issues) == 0
     return passed, issues
+
+
+def get_image_quality_metrics(
+    image_bgr: NDArray[np.uint8],
+    blur_thresh: float = BLUR_THRESHOLD,
+    bright_low: float = BRIGHTNESS_LOW,
+    bright_high: float = BRIGHTNESS_HIGH,
+    contrast_thresh: float = CONTRAST_THRESHOLD,
+) -> dict:
+    """
+    Computes and returns full quantitative image quality telemetry.
+    """
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    lap_var = _laplacian_variance(gray)
+    brightness = _mean_brightness(gray)
+    contrast = _contrast_stddev(gray)
+
+    b_mean, g_mean, r_mean = [float(c) for c in cv2.mean(image_bgr)[:3]]
+    red_ratio = r_mean / (b_mean + 1e-5)
+
+    passed, issues = check_image_quality(
+        image_bgr, blur_thresh, bright_low, bright_high, contrast_thresh
+    )
+
+    return {
+        "passed": passed,
+        "issues": issues,
+        "blur_score": float(round(lap_var, 2)),
+        "brightness": float(round(brightness, 2)),
+        "contrast_score": float(round(contrast, 2)),
+        "red_ratio": float(round(red_ratio, 2)),
+    }

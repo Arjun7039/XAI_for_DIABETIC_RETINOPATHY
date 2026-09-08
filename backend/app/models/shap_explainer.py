@@ -19,11 +19,11 @@ def generate_shap_overlay(
     tensor: np.ndarray,
     original_bgr: NDArray[np.uint8],
     target_category: int | None = None,
-    grid_size: int = 10,
-    num_samples: int = 40,
+    grid_size: int = 6,
+    num_samples: int = 14,
 ) -> str | None:
     """
-    Generates a authentic SHAP Shapley value visual attribution overlay.
+    Generates an authentic SHAP Shapley value visual attribution overlay.
     - Positive Shapley values (Red/Warm): Features driving predicted DR grade.
     - Negative Shapley values (Blue/Cool): Features lowering predicted DR grade.
 
@@ -33,7 +33,11 @@ def generate_shap_overlay(
 
     try:
         # 1. Target class selection
-        base_preds = model.predict(tensor, verbose=0)[0]
+        if isinstance(tensor, np.ndarray):
+            tensor_tf = tf.convert_to_tensor(tensor, dtype=tf.float32)
+        else:
+            tensor_tf = tensor
+        base_preds = model(tensor_tf, training=False).numpy()[0]
         if target_category is None:
             cat_idx = int(np.argmax(base_preds))
         else:
@@ -94,7 +98,7 @@ def generate_shap_overlay(
         masked_batch_tensor = np.array(masked_batch, dtype=np.float32)
 
         # 6. Evaluate Batch Prediction Scores
-        batch_preds = model.predict(masked_batch_tensor, verbose=0)[:, cat_idx]
+        batch_preds = model(tf.convert_to_tensor(masked_batch_tensor), training=False).numpy()[:, cat_idx]
 
         # Baseline score v0
         v0 = float(batch_preds[1])
