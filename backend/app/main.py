@@ -6,16 +6,16 @@ from __future__ import annotations
 
 import os
 import gc
+import asyncio
 
-# ── Multi-Core CPU & oneDNN Vector Acceleration for High-Throughput Hospital Triage ──
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
-cpu_cores = str(max(2, min(8, os.cpu_count() or 4)))
-os.environ["OMP_NUM_THREADS"] = cpu_cores
-os.environ["TF_NUM_INTRAOP_THREADS"] = cpu_cores
-os.environ["TF_NUM_INTEROP_THREADS"] = "2"
-os.environ["MALLOC_ARENA_MAX"] = "2"
+# ── Memory-Lean CPU Thread Allocation for 512MB Cloud Containers (Render Free Tier) ──
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "-1")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("TF_NUM_INTRAOP_THREADS", "1")
+os.environ.setdefault("TF_NUM_INTEROP_THREADS", "1")
+os.environ.setdefault("MALLOC_ARENA_MAX", "1")
 
 from contextlib import asynccontextmanager
 
@@ -23,13 +23,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models.inference import load_model, load_config, warmup_inference
-from app.models.gradcam import warmup_gradcam
 from app.routers import health, predict, presets
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan event handler: load TensorFlow model and config on startup."""
+    """Lifespan event handler: load model, free memory, and bind port immediately."""
     # Load Config first
     config_path = os.getenv(
         "MODEL_CONFIG_PATH", "backend/weights/efficientnet_b4_config.json"
@@ -47,11 +46,21 @@ async def lifespan(app: FastAPI):
     app.state.config = config
     app.state.class_names = class_names
 
-    # JIT-compile and warm up inference & Grad-CAM graphs for sub-second hospital triage
-    print("[STARTUP] Pre-compiling graph kernels for low-latency clinical triaging...")
-    warmup_inference(model)
-    warmup_gradcam(model)
-    print("[STARTUP] High-throughput clinical triage engine online & ready.")
+    # Clean up any transient loading allocations to stay well below 512MB RAM
+    gc.collect()
+
+    # Pre-compile graph in background task so port 8000 binds instantly on Render
+    async def _deferred_warmup():
+        await asyncio.sleep(2.0)
+        try:
+            print("[STARTUP] Pre-compiling graph kernels in background...")
+            warmup_inference(model)
+            gc.collect()
+            print("[STARTUP] High-throughput clinical triage engine online & ready.")
+        except Exception as e:
+            print(f"[WARN] Deferred warmup notice: {e}")
+
+    asyncio.create_task(_deferred_warmup())
 
     yield
 
@@ -81,12 +90,3 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(predict.router)
 app.include_router(presets.router)
-
-
-@app.get("/")
-def root():
-    return {
-        "message": "RetinaScreen AI API is running.",
-        "docs_url": "/docs",
-        "health_check": "/health",
-    }

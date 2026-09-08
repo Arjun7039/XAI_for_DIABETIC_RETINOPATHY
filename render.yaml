@@ -11,3 +11,13 @@ services:
         value: 8000
       - key: MODEL_CONFIG_PATH
         value: weights/efficientnet_b4_config.json
+      - key: MALLOC_ARENA_MAX
+        value: 1
+      - key: TF_ENABLE_ONEDNN_OPTS
+        value: 0
+      - key: TF_NUM_INTRAOP_THREADS
+        value: 1
+      - key: TF_NUM_INTEROP_THREADS
+        value: 1
+      - key: OMP_NUM_THREADS
+        value: 1
