@@ -17,7 +17,7 @@ class HealthStatus(BaseModel):
     version: str = "1.0.0"
 
 
-@router.get("/health", response_model=HealthStatus)
+@router.api_route("/health", methods=["GET", "HEAD"], response_model=HealthStatus)
 def health_check() -> HealthStatus:
     """Return health status check."""
     return HealthStatus()
