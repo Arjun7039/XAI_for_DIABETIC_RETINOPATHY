@@ -140,7 +140,7 @@ export async function analyzeRetinalImage(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 sec timeout for CPU inference & XAI
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 sec timeout for free-tier cloud CPU cold-starts
 
     const response = await fetch(`${API_BASE_URL}/predict?fast_triage=${fastTriage}`, {
       method: "POST",
@@ -163,9 +163,9 @@ export async function analyzeRetinalImage(
     return { data };
   } catch (err: any) {
     if (err.name === "AbortError") {
-      return { error: "Inference timed out (took longer than 60s). Please try again." };
+      return { error: "Inference timed out (cloud server cold-start took longer than 120s). Please try submitting again." };
     }
-    return { error: `Failed to connect to backend at ${API_BASE_URL}. Ensure uvicorn server is running.` };
+    return { error: `Failed to connect to backend at ${API_BASE_URL}. If deploying on Render Free Tier, the instance may be waking up from spin-down. Please retry in 15-20 seconds.` };
   }
 }
 

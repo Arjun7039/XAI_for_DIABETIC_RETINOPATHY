@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models.inference import load_model, load_config, warmup_inference
+from app.models.gradcam import warmup_gradcam
 from app.routers import health, predict, presets
 
 
@@ -49,12 +50,14 @@ async def lifespan(app: FastAPI):
     # Clean up any transient loading allocations to stay well below 512MB RAM
     gc.collect()
 
-    # Pre-compile graph in background task so port 8000 binds instantly on Render
+    # Pre-compile graphs in background so port 8000 binds instantly on Render
     async def _deferred_warmup():
-        await asyncio.sleep(2.0)
+        await asyncio.sleep(1.0)
         try:
-            print("[STARTUP] Pre-compiling graph kernels in background...")
+            print("[STARTUP] Pre-compiling inference graph in background...")
             warmup_inference(model)
+            print("[STARTUP] Pre-compiling Grad-CAM graph in background...")
+            warmup_gradcam(model)
             gc.collect()
             print("[STARTUP] High-throughput clinical triage engine online & ready.")
         except Exception as e:
@@ -85,6 +88,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", tags=["Health"])
+async def root():
+    """Root endpoint to confirm backend is live."""
+    return {
+        "status": "online",
+        "service": "RetinaScreen AI Backend",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/health",
+            "presets": "/presets",
+            "predict": "/predict",
+            "docs": "/docs",
+        },
+    }
+
 
 # Register API routers
 app.include_router(health.router)
