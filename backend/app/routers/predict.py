@@ -107,10 +107,9 @@ async def predict_retinopathy(
     )
 
     if model is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Model is not initialized on the server.",
-        )
+        from app.models.inference import load_model
+        model = load_model(config)
+        request.app.state.model = model
 
     try:
         # 2. Preprocessing
@@ -402,10 +401,9 @@ async def triage_patient_queue(
     )
 
     if model is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Inference model is not initialized.",
-        )
+        from app.models.inference import load_model
+        model = load_model(config)
+        request.app.state.model = model
 
     img_size_config = config.get("image_size", 224)
     img_size = int(img_size_config[0] if isinstance(img_size_config, (list, tuple)) else img_size_config)

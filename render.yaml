@@ -10,4 +10,4 @@ services:
       - key: PORT
         value: 8000
       - key: MODEL_CONFIG_PATH
-        value: backend/weights/efficientnet_b4_config.json
+        value: weights/efficientnet_b4_config.json

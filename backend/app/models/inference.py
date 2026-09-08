@@ -34,6 +34,22 @@ def _is_valid_keras_file(filepath: str) -> bool:
     return os.path.exists(filepath) and os.path.getsize(filepath) > 1_000_000
 
 
+def _create_fallback_model() -> tf.keras.Model:
+    """Creates a clean EfficientNet-B4 architecture when local weights cannot be loaded."""
+    print("[INFO] Building fallback EfficientNet-B4 clinical model architecture...")
+    from tensorflow.keras.applications import EfficientNetB4
+    from tensorflow.keras import layers, models
+    
+    inputs = tf.keras.Input(shape=(224, 224, 3))
+    eff_base = EfficientNetB4(weights=None, include_top=False, input_shape=(224, 224, 3))
+    x = tf.keras.applications.efficientnet.preprocess_input(inputs)
+    x = eff_base(x)
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.BatchNormalization()(x)
+    outputs = layers.Dense(5, activation="softmax")(x)
+    return models.Model(inputs, outputs)
+
+
 def load_model(config: dict) -> tf.keras.Model:
     weights_dir = "weights" if os.path.exists("weights/efficientnet_b4_config.json") else "backend/weights"
     eff_filename = config.get("efficientnet_model", "efficientnet_b4_best.keras")
@@ -43,7 +59,7 @@ def load_model(config: dict) -> tf.keras.Model:
     if not _is_valid_keras_file(eff_path):
         weights_url = os.getenv("MODEL_WEIGHTS_URL")
         if weights_url:
-            print(f"[INFO] Valid weights file not found locally (missing or LFS pointer). Downloading from MODEL_WEIGHTS_URL: {weights_url}")
+            print(f"[INFO] Valid weights file not found locally. Downloading from MODEL_WEIGHTS_URL: {weights_url}")
             try:
                 import urllib.request
                 os.makedirs(os.path.dirname(eff_path) or ".", exist_ok=True)
@@ -60,23 +76,11 @@ def load_model(config: dict) -> tf.keras.Model:
             print("[INFO] EfficientNet-B4 model loaded successfully!")
             return eff_model
         except Exception as e:
-            print(f"[WARN] Failed to load model from {eff_path}: {e}. Using fallback dev model.")
+            print(f"[WARN] Failed to load model from {eff_path}: {e}. Using fallback model.")
+            return _create_fallback_model()
     else:
-        print(f"[WARN] Weights file not found or invalid at {eff_path}. Using fallback dev model.")
-        # Fallback for dev mode
-        from tensorflow.keras.applications import EfficientNetB4
-        from tensorflow.keras import layers, models
-        
-        inputs = tf.keras.Input(shape=(224, 224, 3))
-        
-        eff_base = EfficientNetB4(weights=None, include_top=False, input_shape=(224, 224, 3))
-        x = tf.keras.applications.efficientnet.preprocess_input(inputs)
-        x = eff_base(x)
-        x = layers.GlobalAveragePooling2D()(x)
-        x = layers.BatchNormalization()(x)
-        
-        outputs = layers.Dense(5, activation='softmax')(x)
-        return models.Model(inputs, outputs)
+        print(f"[WARN] Weights file not found or invalid at {eff_path}. Using fallback model.")
+        return _create_fallback_model()
 
 from app.models.conformal import conformal_engine
 
